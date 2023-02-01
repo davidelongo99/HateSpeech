@@ -1,7 +1,11 @@
+from transformers import pipeline
 import pandas as pd
 import numpy as np
 import tweepy
 import configparser
+import json
+import time
+import re
 
 def search_twitter_info(name_surname_list, config_file):
     # read all the credentials from the config file 
@@ -46,3 +50,28 @@ def search_twitter_info(name_surname_list, config_file):
                 twitter_info.iloc[i, n] = user[info[n-1]]
 
     return twitter_info
+
+
+def remove_usernames_links(tweet):
+    tweet = re.sub('@[^\s]+', '', tweet)  # remove usernames
+    tweet = re.sub('http[^\s]+', '', tweet)  # remove links
+    return tweet
+
+
+def check_replys(tweet_ID):
+    to_store = []
+    query = f"conversation_id:{tweet_ID} is:reply"
+    # read all the credentials from the config file
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    bearer_token = config['twitter']['bearer_token']
+    twitter_client = tweepy.Client(bearer_token)
+    replys = tweepy.Paginator(twitter_client.search_recent_tweets,
+                              query=query, max_results=100).flatten(limit=250)
+
+    if replys is not None:
+        for reply in replys:
+            to_store.append(reply.text)
+        return to_store
+    else:
+        return np.nan

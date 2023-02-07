@@ -1,5 +1,4 @@
-from transformers import pipeline
-from hs_functions import remove_usernames_links, check_replys
+from hs_functions import check_replys
 import pandas as pd
 import json
 import time
@@ -52,44 +51,5 @@ for k in all_replies.keys():
 
 replies_df.to_csv(f"data_collection_w{week}/replies_w{week}.csv")
 
-replies_df['reply'] = replies_df['reply'].apply(remove_usernames_links)
-header_list = ['source_tweet', 'reply', 'Hate_score', 'NonHate_score']
-replies_df = replies_df.reindex(columns=header_list)
-
-classifier = pipeline("text-classification",
-                      model='MilaNLProc/hate-ita', top_k=2)
-
-for i in range(len(replies_df)):
-    tweet = replies_df.iloc[i, 1]
-    if type(tweet) is not str:
-        continue
-    else:
-        prediction = classifier(tweet)
-        if prediction[0][0]['label'] == 'non-hateful':
-            replies_df.iloc[i, 3] = prediction[0][0]['score']
-            replies_df.iloc[i, 2] = prediction[0][1]['score']
-        else:
-            replies_df.iloc[i, 2] = prediction[0][0]['score']
-            replies_df.iloc[i, 3] = prediction[0][1]['score']
-
-replies_df.to_csv(f'data_collection_w{week}/replies_w{week}_hs.csv')
-
-hs_mean_bytweet = replies_df.groupby("source_tweet")["Hate_score"].mean()
-
-tweet_hs_received = hs_mean_bytweet.to_frame().reset_index().sort_values(
-    by='Hate_score', axis=0, ascending=False).rename(
-    columns={'source_tweet': 'Tweet_ID', 'Hate_score': 'hs_received'})
-tweet_hs_received
-
-tweets_week_hsr = pd.merge(tweets_week, tweet_hs_received, on='Tweet_ID')
-tweets_week_hsr_2 = tweets_week_hsr.groupby('User')['hs_received'].mean()
-tweets_week_hsr_3 = tweets_week_hsr_2.to_frame().reset_index().sort_values(by='hs_received', axis=0, ascending=False).rename(
-    columns={'User': 'screen_name', 'hs_received': f'hs_received_w{week}'})
-# tweet of week1 and hate speech received
-tweets_week_hsr_3.to_csv(f'data_collection_w{week}/tweets_w{week}_hsr.csv')
 
 
-twitter_veracc = pd.read_csv('twitter_veracc.csv')
-tweets_week_hsr_4 = pd.merge(twitter_veracc[[
-                             'screen_name', 'gender', 'parliamentary_group', 'chamber']], tweets_week_hsr_3, on='screen_name')
-tweets_week_hsr_4.to_csv(f'data_collection_w{week}/hsr_w{week}_depsen.csv')

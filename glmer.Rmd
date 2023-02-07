@@ -1,0 +1,44 @@
+---
+title: "Multilevel binomial regression"
+output: html_notebook
+---
+```{r}
+library(lme4) 
+library(dplyr)
+```
+
+
+```{r}
+df = read.csv("final.csv")
+```
+
+```{r}
+# convert categorical variables to factors
+df$gender <- as.factor(df$gender)
+df$parliamentary_group <- as.factor(df$parliamentary_group)
+df$Hate_score <- as.factor(df$Hate_score)
+df$Sentiment <- as.factor(df$Sentiment)
+```
+
+This model is a Generalized Linear Mixed Effects Model (GLMM) that is used to predict the Hate_score (1 = Hateful, 0 = Non Hateful) based on the following independent variables:
+
+- Sentiment: sentiment of the tweet published by the politician
+- followers_count: followers count of the politician
+- gender: gender of the politician
+- parliamentary_group: parliamentary group of the politician
+
+The model includes a random effect term (1 | source_tweet), which means that the intercept for the dependent variable (Hate_score) is allowed to vary for each unique source_tweet. This accounts for the fact that the mean of the dependent variable may differ between different source_tweets. The family argument is set to "binomial" because the dependent variable is binary (1 or 0).
+
+```{r}
+fit <- glmer(Hate_score ~ Sentiment + 
+               gender + 
+               parliamentary_group + 
+               (1 | Tweet_ID), 
+             data = df, 
+             family = binomial())
+```
+
+```{r}
+summary(fit)
+```
+

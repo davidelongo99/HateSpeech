@@ -1,11 +1,13 @@
-from transformers import pipeline
 import pandas as pd
 import numpy as np
 import tweepy
 import configparser
-import json
-import time
 import re
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+nltk.download("punkt")
+nltk.download("stopwords")
 
 def search_twitter_info(name_surname_list, config_file):
     # read all the credentials from the config file 
@@ -51,6 +53,40 @@ def search_twitter_info(name_surname_list, config_file):
 
     return twitter_info
 
+def get_tweets(usernames, config_file):
+    config = configparser.ConfigParser ()
+    config.read(config_file)
+
+    api_key = config ['twitter']['api_key']
+    api_key_secret = config ['twitter']['api_key_secret']
+
+    access_token = config ['twitter']['access_token']
+    access_token_secret = config ['twitter']['access_token_secret']
+
+    #authentication
+    auth = tweepy.OAuthHandler(api_key, api_key_secret)
+    auth.set_access_token(access_token, access_token_secret)
+
+    api = tweepy.API(auth)
+
+    all_tweets = pd.DataFrame(columns=['Tweet_ID', 'Time', 'User', 'Tweet'])
+
+    #user tweets
+    for user in usernames:
+        limit = 20000
+        tweets = tweepy.Cursor(api.user_timeline, screen_name=user, count= 200, include_rts=False, tweet_mode = 'extended').items(limit)
+
+        #create dataframe
+        columns = ['Tweet_ID', 'Time', 'User', 'Tweet']
+        data=[]
+
+        for tweet in tweets:
+            data.append([tweet.id, tweet.created_at, tweet.user.screen_name, tweet.full_text])
+        
+        df_tweet_user= pd.DataFrame(data,columns=columns)
+        all_tweets = pd.concat([all_tweets, df_tweet_user], axis=0, ignore_index=True)
+
+    return all_tweets
 
 def remove_usernames_links(tweet):
     tweet = re.sub('@[^\s]+', '', tweet)  # remove usernames
@@ -75,3 +111,20 @@ def check_replys(tweet_ID):
         return to_store
     else:
         return np.nan
+
+
+def preprocess_tweet(tweet):
+    tweet = str(tweet)
+    # Remove URLs, RTs, and twitter handles
+    tweet = re.sub(r'http\S+', '', tweet)
+    tweet = re.sub(r'@[A-Za-z0-9]+', '', tweet)
+    tweet = re.sub(r'RT[\s]+', '', tweet)
+
+    # Remove punctuation
+    tweet = re.sub(r'[^\w\s]', '', tweet)
+
+    # lowercase text
+    tweet = tweet.lower() 
+
+    return tweet
+
